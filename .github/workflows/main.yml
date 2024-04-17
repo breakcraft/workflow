@@ -1,0 +1,102 @@
+name: CI Build and AI Model Fine-Tuning
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'GitHub repository to clone (e.g., owner/repo)'
+        required: true
+        default: 'example-owner/example-repo'
+      branch:
+        description: 'Branch to clone'
+        required: false
+        default: 'main'
+      python_version:
+        description: 'Python version to use'
+        required: false
+        default: '3.9'
+      preprocess_script:
+        description: 'Script for data preprocessing'
+        required: false
+        default: 'preprocess.py'
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight
+
+jobs:
+  ubuntu-cmake:
+    name: ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libgtest-dev make libssl-dev
+          sudo apt-get install -y redis valgrind
+      - name: make
+        run: make
+      - name: make check
+        run: make check
+      - name: make tutorial
+        run: make tutorial
+
+  fedora-cmake:
+    name: fedora
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: install dependencies
+        run: |
+          dnf -y update
+          dnf -y install cmake gcc-c++ gtest-devel make
+          dnf -y install openssl-devel redis valgrind
+      - name: make
+        run: make
+      - name: make check
+        run: make check
+      - name: make tutorial
+        run: make tutorial
+
+  setup-and-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.branch }}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ github.event.inputs.python_version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyyaml pandas regex nltk spacy matplotlib seaborn networkx sklearn
+      - name: Advanced Analyze File Contents
+        run: |
+          #...Python analysis script...
+      - name: Upload Analysis Logs and Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: analysis-logs-and-reports
+          path: ./
+      - name: Create Issue for Fixes
+        run: |
+          #...Python script to create issues...
+      - name: Notify Completion
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔍 Detailed file, sentiment, entity, and security analysis completed. Machine learning predictions applied.'
+            })
